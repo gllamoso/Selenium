@@ -15,7 +15,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 public class Selenium {
-	private static final String DRIVERS_DIRECTORY = "C:\\Git\\Selenium\\drivers\\";
+	private static final String DRIVERS_DIRECTORY = "..\\Selenium\\drivers\\";
 	
 	private static WebDriver driver;
 	private static int timeoutTime = 3;
