@@ -1,11 +1,19 @@
 package selenium;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -15,11 +23,28 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 public class Selenium {
+	//---------------------------------------------------------------------------------------------
 	private static final String DRIVERS_DIRECTORY = "..\\Selenium\\drivers\\";
-	
+	private static final String RESULTS_FOLDER_NAME = getDateTime("yyyyMMdd_hhmmss");
+	private static final String RESULTS_DIRECTORY = "Results\\" + RESULTS_FOLDER_NAME + "\\";
+	private static final String FINAL_RESULTS_LOG = "Results\\all.txt";
+	//---------------------------------------------------------------------------------------------
 	private static WebDriver driver;
 	private static int timeoutTime = 3;
-	
+	private static final PrintStream console = System.out;
+	private static PrintStream log;
+	private static PrintStream results;
+	static{
+		try{
+			new File(RESULTS_DIRECTORY).mkdirs();
+			log = new PrintStream(new File(RESULTS_DIRECTORY + "log.txt"));
+			results = new PrintStream(new File(RESULTS_DIRECTORY + "results.txt"));
+		}
+		catch(FileNotFoundException e){
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
 	//---------------------------------------------------------------------------------------------
 	public static WebDriver getDriver(){
 		return driver;
@@ -39,11 +64,13 @@ public class Selenium {
 			case Chrome: driver = new ChromeDriver(); break;
 			case IE: driver = new InternetExplorerDriver(); break;
 		}
+		log("Browser set to " + browser.toString());
 	}
 	//---------------------------------------------------------------------------------------------
 	public static void setTimeoutTime(int seconds){
 		timeoutTime = seconds;
 		driver.manage().timeouts().implicitlyWait(timeoutTime, TimeUnit.SECONDS);
+		log("timeoutTime set to " + seconds);
 	}
 	//---------------------------------------------------------------------------------------------
 	//ACTIONS
@@ -51,48 +78,71 @@ public class Selenium {
 	public static void navigate(String url){
 		try{
 			driver.get(url);
+			log("Navigate: " + url);
 		}
 		catch(Exception e){
-			System.out.println("Failure loading page: " + url);
-			stop();
+			stop("Failure loading page: " + url);
+		}
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void click(By by, String label){
+		try{
+			WebElement clickable = (new WebDriverWait(driver, timeoutTime)).until(ExpectedConditions.elementToBeClickable(by));
+			clickable.click();
+			
+			// Logging
+			if(label.equals(""))
+				log("Clicked " + by.toString());
+			else
+				result("Clicked " + label + "");
+		}
+		catch(Exception e){
+			result(e.toString());
+			stop("FAILURE: Error in clicking element " + by.toString());
 		}
 	}
 	//---------------------------------------------------------------------------------------------
 	public static void click(By by){
+		click(by, "");
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void set(By by, String input, String label){
 		try{
-			WebElement clickable = (new WebDriverWait(driver, timeoutTime)).until(ExpectedConditions.elementToBeClickable(by));
-			clickable.click();
+			WebElement inputField = (new WebDriverWait(driver, timeoutTime)).until(ExpectedConditions.presenceOfElementLocated(by));
+			inputField.sendKeys(input);
+			
+			// Logging
+			if(label.equals(""))
+				log("Set \"" + input + "\" to " + by.toString());
+			else
+				result("Set \"" + input + "\" to " + label);
 		}
 		catch(Exception e){
-			System.out.println("SCRIPT STOPPED: Error in clicking element: " + by.toString());
-			System.out.println(e.toString());
-			stop();
+			result(e.toString());
+			stop("FAILURE: Error in setting element " + by.toString());
 		}
 	}
 	//---------------------------------------------------------------------------------------------
 	public static void set(By by, String input){
-		try{
-			WebElement inputField = (new WebDriverWait(driver, timeoutTime)).until(ExpectedConditions.presenceOfElementLocated(by));
-			inputField.sendKeys(input);
-		}
-		catch(Exception e){
-			System.out.println("SCRIPT STOPPED: Error in setting element: " + by.toString());
-			System.out.println(e.toString());
-			stop();
-		}
+		set(by, input, "");
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void setAndEnter(By by , String input, String label){
+		set(by, input, label);
+		driver.findElement(by).sendKeys(Keys.ENTER);
 	}
 	//---------------------------------------------------------------------------------------------
 	public static void setAndEnter(By by , String input){
-		set(by, input);
-		driver.findElement(by).sendKeys(Keys.ENTER);
+		setAndEnter(by, input, "");
 	}
 	//---------------------------------------------------------------------------------------------
 	public static void wait(int seconds){
 		try {
 			Thread.sleep((long)seconds * 1000);
+			log("Wait for " + seconds + " seconds");
 		} catch (InterruptedException e) {
-			System.out.println("SCRIPT STOPPED: Error with wait method");
-			stop();
+			result(e.toString());
+			stop("FAILURE: Error with wait");
 		}
 	}
 	//---------------------------------------------------------------------------------------------
@@ -100,6 +150,12 @@ public class Selenium {
 		driver.close();
 		driver.quit();
 		System.exit(0);
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void stop(String message){
+		result(message);
+		finalResult(message);
+		stop();
 	}
 	//---------------------------------------------------------------------------------------------
 	// CHECKS
@@ -127,7 +183,6 @@ public class Selenium {
 	}
 	//---------------------------------------------------------------------------------------------
 	public static String fetchText(By by){
-		
 		try{
 			String fullText = "";
 			for(WebElement webElement : waitForSelectors(by)){
@@ -139,6 +194,49 @@ public class Selenium {
 			System.out.println("SCRIPT STOPPED: Timeout getting text from element: " + by.toString());
 			stop();
 			return "";
+		}
+	}
+	//---------------------------------------------------------------------------------------------
+	// DATE/TIME
+	public static String getDateTime(String pattern){
+		return DateTimeFormatter.ofPattern(pattern).format(LocalDateTime.now());
+	}
+	//---------------------------------------------------------------------------------------------
+	// RESULTS AND LOGGING
+	public static void log(String message){
+		message = "\n[" + getDateTime("MM-dd-yyyy: hh:mm:ss") + "][Log]: " + message;
+		
+		System.setOut(log);
+		System.out.println(message);
+		System.setOut(console);
+		System.out.println(message);
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void result(String message){
+		message = "\n[" + getDateTime("MM-dd-yyyy: hh:mm:ss") + "][Result]: " + message;
+		
+		System.setOut(results);
+		System.out.println(message);
+		System.setOut(log);
+		System.out.println(message);
+		System.setOut(console);
+		System.out.println(message);
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void finalResult(String message){
+		message = RESULTS_FOLDER_NAME + ": " + message;
+		
+		try {
+			FileWriter fw = new FileWriter(FINAL_RESULTS_LOG, true);
+			BufferedWriter bw = new BufferedWriter(fw);
+			PrintWriter pw = new PrintWriter(bw);
+			pw.append(message);
+			pw.println();
+			pw.println();
+			pw.close();
+		}
+		catch (IOException e){
+			log(e.toString());
 		}
 	}
 	//---------------------------------------------------------------------------------------------
