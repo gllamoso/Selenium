@@ -84,6 +84,7 @@ public class Selenium {
 			log("Navigate: " + url);
 		}
 		catch(Exception e){
+			screenshot("Navigation error");
 			stop("Failure loading page: " + url);
 		}
 	}
@@ -101,6 +102,7 @@ public class Selenium {
 		}
 		catch(Exception e){
 			result(e.toString());
+			screenshot("click error");
 			stop("FAILURE: Error in clicking element " + by.toString());
 		}
 	}
@@ -122,6 +124,7 @@ public class Selenium {
 		}
 		catch(Exception e){
 			result(e.toString());
+			screenshot("set error");
 			stop("FAILURE: Error in setting element " + by.toString());
 		}
 	}
@@ -174,6 +177,7 @@ public class Selenium {
 		}
 		catch(Exception e){
 			System.out.println("SCRIPT STOPPED: Timeout trying to find element: " + by.toString());
+			screenshot("waitForSelector error");
 			stop();
 		}
 		
@@ -194,8 +198,8 @@ public class Selenium {
 			return fullText;
 		}
 		catch(NoSuchElementException e){
-			System.out.println("SCRIPT STOPPED: Timeout getting text from element: " + by.toString());
-			stop();
+			screenshot("fetchText error");
+			stop("SCRIPT STOPPED: Timeout getting text from element: " + by.toString());
 			return "";
 		}
 	}
@@ -249,11 +253,16 @@ public class Selenium {
 		File destFile = new File(RESULTS_DIRECTORY + name + ".png");
 		try {
 			FileUtils.copyFile(srcFile, destFile);
-			log("Screenshot saved in results folder");
+			log("Screenshot \"" + name + "\" saved in results folder");
 		} catch (IOException e) {
 			result(e.toString());
 			stop("FAILURE: Unable to copy screenshot");
 		}
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void screenshotWhenElementIsVisible(By by, String screenshotName){
+		waitForSelector(by);
+		screenshot(screenshotName);
 	}
 	//---------------------------------------------------------------------------------------------
 
