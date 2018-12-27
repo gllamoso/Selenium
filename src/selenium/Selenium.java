@@ -11,9 +11,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -237,6 +240,19 @@ public class Selenium {
 		}
 		catch (IOException e){
 			log(e.toString());
+		}
+	}
+	//---------------------------------------------------------------------------------------------
+	public static void screenshot(String name){
+		TakesScreenshot screenshot = (TakesScreenshot)driver;
+		File srcFile = screenshot.getScreenshotAs(OutputType.FILE);
+		File destFile = new File(RESULTS_DIRECTORY + name + ".png");
+		try {
+			FileUtils.copyFile(srcFile, destFile);
+			log("Screenshot saved in results folder");
+		} catch (IOException e) {
+			result(e.toString());
+			stop("FAILURE: Unable to copy screenshot");
 		}
 	}
 	//---------------------------------------------------------------------------------------------
